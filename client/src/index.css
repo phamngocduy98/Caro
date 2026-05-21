@@ -173,3 +173,72 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
   border: 1px solid #d2d2d7;
 }
 .game-over-buttons button:last-child:hover { background: #e8e8ed; }
+
+/* Ultimate Tic Tac Toe */
+.ultimate-board {
+  display: grid;
+  grid-template-columns: repeat(3, 120px);
+  grid-template-rows: repeat(3, 120px);
+  gap: 12px;
+  margin: 0 auto;
+}
+.mini-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 4px;
+  border: 2px solid #d2d2d7;
+  border-radius: 8px;
+  padding: 4px;
+  transition: all 0.2s;
+}
+.mini-board.active {
+  border-color: #007aff;
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+.mini-board.won {
+  opacity: 0.6;
+}
+.mini-board .cell {
+  width: 100%;
+  height: 100%;
+  font-size: 24px;
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+/* 3D Tic Tac Toe */
+.three-d-board {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin: 0 auto;
+}
+.layer {
+  text-align: center;
+}
+.layer h4 {
+  font-size: 14px;
+  color: #86868b;
+  margin-bottom: 8px;
+  font-weight: 400;
+}
+.layer .board {
+  display: flex;
+  justify-content: center;
+}
+.layer .cell {
+  width: 70px;
+  height: 70px;
+  font-size: 32px;
+  border-radius: 8px;
+}
+
+/* Wild Tic Tac Toe */
+.wild-cell.blocked {
+  background: #e5e5ea;
+  cursor: not-allowed;
+}
+.wild-cell.wild {
+  background: #fff9c4;
+}
