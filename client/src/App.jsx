@@ -1,4 +1,9 @@
 import { useState } from 'react'
+import LoginScreen from './components/LoginScreen.jsx'
+import Lobby from './components/Lobby.jsx'
+
+// Placeholder - Room will be created in Task 5
+function Room() { return null }
 
 function App() {
   const [username, setUsername] = useState('')
