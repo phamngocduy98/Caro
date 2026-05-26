@@ -36,17 +36,44 @@ export function checkWinner(board, wins = CLASSIC_WINS) {
   return null;
 }
 
-export function createRoom() {
+export function createRoom({ gameType, boardSize } = {}) {
+  const isCaro = gameType === 'caro'
+  const size = boardSize || (isCaro ? 35 : 9)
   return {
     code: generateCode(),
     players: [],
-    board: Array(9).fill(null),
+    board: Array(size * size).fill(null),
+    boardSize: size,
     currentTurn: 'X',
     status: 'waiting', // waiting | playing | finished
-    gameType: 'classic'
+    gameType: gameType || 'classic'
   };
 }
 
 function generateCode() {
   return Math.random().toString(36).substring(2, 6).toUpperCase();
+}
+
+// Caro 5-in-a-row win detection
+
+const caroWinsCache = new Map()
+
+export function getCaroWins(size) {
+  if (!caroWinsCache.has(size)) {
+    caroWinsCache.set(size, generateCaroWins(size))
+  }
+  return caroWinsCache.get(size)
+}
+
+export function checkCaroWinner(board, size) {
+  const wins = getCaroWins(size)
+  for (const [a, b, c, d, e] of wins) {
+    if (board[a] && board[a] === board[b] && board[a] === board[c] && board[a] === board[d] && board[a] === board[e]) {
+      return { winner: board[a], line: [a, b, c, d, e] }
+    }
+  }
+  if (board.every(cell => cell !== null)) {
+    return { winner: 'draw', line: null }
+  }
+  return null
 }

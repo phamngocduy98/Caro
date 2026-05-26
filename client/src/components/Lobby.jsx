@@ -2,8 +2,11 @@ import { useState } from 'react'
 import { useSocket } from '../hooks/useSocket.js'
 
 const GAME_TYPES = [
-  { id: 'classic', name: 'Classic', desc: 'Standard 3x3', icon: '◇' }
+  { id: 'classic', name: 'Classic', desc: 'Standard 3x3', icon: '◇' },
+  { id: 'caro', name: 'Caro', desc: '5 in a row', icon: '日' }
 ]
+
+const BOARD_SIZES = [15, 19, 25, 30, 35]
 
 const PLAY_MODES = [
   { id: 'local', name: 'Local', desc: '2 players, 1 device', icon: '⌘', color: '#10b981' },
@@ -15,22 +18,29 @@ function Lobby({ username, onEnterRoom }) {
   const socketRef = useSocket()
   const [mode, setMode] = useState('online')
   const [gameType, setGameType] = useState('classic')
+  const [boardSize, setBoardSize] = useState(35)
+  const [showBoardSize, setShowBoardSize] = useState(false)
   const [roomCodeInput, setRoomCodeInput] = useState('')
   const [isMatching, setIsMatching] = useState(false)
   const [showJoinInput, setShowJoinInput] = useState(false)
 
   const handleAutoMatch = () => {
     setIsMatching(true)
-    onEnterRoom({ mode: 'online', gameType, intent: 'auto-match' })
+    onEnterRoom({ mode: 'online', gameType, intent: 'auto-match', boardSize })
   }
 
   const handleJoinRoom = () => {
     if (roomCodeInput.length !== 4) return
-    onEnterRoom({ mode: 'online', gameType, intent: 'join', roomCode: roomCodeInput })
+    onEnterRoom({ mode: 'online', gameType, intent: 'join', roomCode: roomCodeInput, boardSize })
   }
 
   const handleCreateRoom = () => {
-    onEnterRoom({ mode: 'online', gameType, intent: 'create' })
+    onEnterRoom({ mode: 'online', gameType, intent: 'create', boardSize })
+  }
+
+  const handleSelectGameType = (id) => {
+    setGameType(id)
+    setShowBoardSize(id === 'caro')
   }
 
   const selectedMode = PLAY_MODES.find(m => m.id === mode)
@@ -95,7 +105,7 @@ function Lobby({ username, onEnterRoom }) {
               <button
                 key={g.id}
                 className={`type-card ${gameType === g.id ? 'active' : ''}`}
-                onClick={() => setGameType(g.id)}
+                onClick={() => handleSelectGameType(g.id)}
               >
                 <span className="type-icon">{g.icon}</span>
                 <span className="type-name">{g.name}</span>
@@ -104,6 +114,26 @@ function Lobby({ username, onEnterRoom }) {
             ))}
           </div>
         </div>
+
+        {showBoardSize && gameType === 'caro' && (
+          <div className="board-size-section">
+            <h2 className="section-title">
+              <span className="section-num">03</span>
+              BOARD SIZE
+            </h2>
+            <div className="board-size-grid">
+              {BOARD_SIZES.map(s => (
+                <button
+                  key={s}
+                  className={`size-card ${boardSize === s ? 'active' : ''}`}
+                  onClick={() => setBoardSize(s)}
+                >
+                  <span className="size-name">{s}×{s}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="action-section">
           {mode === 'online' && (
@@ -166,7 +196,7 @@ function Lobby({ username, onEnterRoom }) {
           )}
 
           {mode !== 'online' && (
-            <button className="start-btn" onClick={() => onEnterRoom({ mode, gameType, intent: 'local' })}>
+            <button className="start-btn" onClick={() => onEnterRoom({ mode, gameType, intent: 'local', boardSize })}>
               <span className="btn-text">START GAME</span>
               <span className="btn-arrow">→</span>
             </button>
@@ -670,6 +700,48 @@ function Lobby({ username, onEnterRoom }) {
 
         .start-btn:hover .btn-arrow {
           transform: translateX(0.5vmin);
+        }
+
+        .board-size-section {
+          margin-bottom: 5vmin;
+          animation: slideUp 0.4s ease-out;
+        }
+
+        .board-size-grid {
+          display: flex;
+          gap: 1.5vmin;
+          flex-wrap: wrap;
+          justify-content: center;
+        }
+
+        .size-card {
+          padding: 2vmin 3vmin;
+          background: rgba(255,255,255,0.02);
+          border: 1px solid rgba(255,255,255,0.06);
+          border-radius: 1.5vmin;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          text-align: center;
+        }
+
+        .size-card:hover {
+          background: rgba(255,255,255,0.04);
+          border-color: rgba(255,255,255,0.1);
+        }
+
+        .size-card.active {
+          border-color: #8b5cf6;
+          background: rgba(139, 92, 246, 0.15);
+        }
+
+        .size-name {
+          font-size: 1.8vmin;
+          font-weight: 600;
+          color: #aaa;
+        }
+
+        .size-card.active .size-name {
+          color: #fff;
         }
 
         @media (max-width: 600px) {

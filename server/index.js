@@ -2,7 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
-import { createRoom, checkWinner, CLASSIC_WINS } from './game.js';
+import { createRoom, checkWinner, CLASSIC_WINS, checkCaroWinner } from './game.js';
 
 const app = express();
 app.use(cors());
@@ -16,10 +16,9 @@ const rooms = new Map();
 const waitingPool = [];
 
 io.on('connection', (socket) => {
-  socket.on('create-room', ({ username, gameType }) => {
-    const room = createRoom();
+  socket.on('create-room', ({ username, gameType, boardSize }) => {
+    const room = createRoom({ gameType, boardSize });
     room.players.push({ id: socket.id, username, symbol: 'X' });
-    room.gameType = gameType;
     rooms.set(room.code, room);
     socket.join(room.code);
     socket.emit('room-created', { roomCode: room.code });
@@ -39,25 +38,28 @@ io.on('connection', (socket) => {
     socket.emit('room-joined', { roomCode: room.code, symbol: 'O' });
   });
 
-  socket.on('auto-match', ({ username, gameType }) => {
-    waitingPool.push({ socket, username, gameType });
+  socket.on('auto-match', ({ username, gameType, boardSize }) => {
+    waitingPool.push({ socket, username, gameType, boardSize });
     socket.data.username = username;
     socket.data.gameType = gameType;
+    socket.data.boardSize = boardSize;
 
     const poolIdx = waitingPool.findIndex(p => p.socket.id === socket.id);
-    const myEntry = waitingPool[poolIdx];
     if (poolIdx === -1) return;
 
-    const matchIdx = waitingPool.findIndex(p => p.socket.id !== socket.id && p.gameType === gameType);
+    const matchIdx = waitingPool.findIndex(p =>
+      p.socket.id !== socket.id && p.gameType === gameType && p.boardSize === boardSize
+    );
     if (matchIdx === -1) return;
 
     const p1 = waitingPool.splice(poolIdx, 1)[0];
-    const remainingIdx = waitingPool.findIndex(p => p.socket.id !== p1.socket.id && p.gameType === gameType);
+    const remainingIdx = waitingPool.findIndex(p =>
+      p.socket.id !== p1.socket.id && p.gameType === gameType && p.boardSize === boardSize
+    );
     if (remainingIdx === -1) return;
 
     const p2 = waitingPool.splice(remainingIdx, 1)[0];
-    const room = createRoom();
-    room.gameType = 'classic';
+    const room = createRoom({ gameType, boardSize });
     room.players = [
       { id: p1.socket.id, username: p1.username, symbol: 'X' },
       { id: p2.socket.id, username: p2.username, symbol: 'O' }
@@ -85,7 +87,13 @@ io.on('connection', (socket) => {
     room.board[cellIndex] = player.symbol;
     room.currentTurn = player.symbol === 'X' ? 'O' : 'X';
 
-    const result = checkWinner(room.board);
+    let result
+    if (room.gameType === 'caro') {
+      result = checkCaroWinner(room.board, room.boardSize)
+    } else {
+      result = checkWinner(room.board)
+    }
+
     io.to(room.code).emit('move-made', { cellIndex, board: room.board, currentTurn: room.currentTurn });
 
     if (result) {

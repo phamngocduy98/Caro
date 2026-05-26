@@ -1,9 +1,12 @@
 import { useEffect, useReducer, useRef } from 'react'
 import GameBoard from './GameBoard.jsx'
+import CaroBoard from './CaroBoard.jsx'
 import GameOver from './GameOver.jsx'
 import { useSocket } from '../hooks/useSocket.js'
 import { getBestMove, checkWinner } from '../utils/minimax.js'
 import { checkClassicWinner } from '../utils/gameLogic.js'
+import { checkCaroWinner } from '../utils/caroLogic.js'
+import { getBestMove as getCaroBestMove } from '../utils/caroAI.js'
 
 const INIT = 'INIT'
 const JOIN = 'JOIN'
@@ -45,10 +48,12 @@ function roomReducer(state, action) {
   }
 }
 
-function Room({ username, mode, gameType, intent, roomCode: inputRoomCode, onLeave }) {
+function Room({ username, mode, gameType, boardSize, intent, roomCode: inputRoomCode, onLeave }) {
+  const effectiveSize = gameType === 'caro' ? (boardSize || 35) : 3
   const socketRef = useSocket()
   const [state, dispatch] = useReducer(roomReducer, {
     ...initialRoomState,
+    board: Array(effectiveSize * effectiveSize).fill(null),
     roomCode: inputRoomCode || null
   })
 
@@ -109,16 +114,16 @@ function Room({ username, mode, gameType, intent, roomCode: inputRoomCode, onLea
     if (!socket || mode !== 'online') return
 
     if (intent === 'create') {
-      socket.emit('create-room', { username, gameType })
+      socket.emit('create-room', { username, gameType, boardSize: effectiveSize })
     } else if (intent === 'join') {
       socket.emit('join-room', { roomCode: inputRoomCode, username })
     } else if (intent === 'auto-match') {
-      socket.emit('auto-match', { username, gameType })
+      socket.emit('auto-match', { username, gameType, boardSize: effectiveSize })
     }
-  }, [mode, intent, username, gameType, inputRoomCode, socketRef])
+  }, [mode, intent, username, gameType, inputRoomCode, socketRef, effectiveSize])
 
   useEffect(() => {
-    if (mode === 'bot' && gameType === 'classic') {
+    if (mode === 'bot' && (gameType === 'classic' || gameType === 'caro')) {
       dispatch({ type: SET_SYMBOL, symbol: 'X' })
     }
   }, [mode, gameType])
@@ -134,7 +139,13 @@ function Room({ username, mode, gameType, intent, roomCode: inputRoomCode, onLea
     const newBoard = [...board]
     newBoard[index] = currentTurn
 
-    const result = checkClassicWinner(newBoard)
+    let result
+    if (gameType === 'caro') {
+      result = checkCaroWinner(newBoard, effectiveSize)
+    } else {
+      result = checkClassicWinner(newBoard)
+    }
+
     if (result) {
       dispatch({ type: GAME_OVER, winner: result.winner, line: result.line })
     } else {
@@ -143,11 +154,21 @@ function Room({ username, mode, gameType, intent, roomCode: inputRoomCode, onLea
 
       if (mode === 'bot' && nextTurn === 'O') {
         setTimeout(() => {
-          const botMove = getBestMove([...newBoard])
+          let botMove
+          if (gameType === 'caro') {
+            botMove = getCaroBestMove([...newBoard], effectiveSize, 1500)
+          } else {
+            botMove = getBestMove([...newBoard])
+          }
           if (botMove !== null) {
             const botBoard = [...newBoard]
             botBoard[botMove] = 'O'
-            const botResult = checkClassicWinner(botBoard)
+            let botResult
+            if (gameType === 'caro') {
+              botResult = checkCaroWinner(botBoard, effectiveSize)
+            } else {
+              botResult = checkClassicWinner(botBoard)
+            }
             if (botResult) {
               dispatch({ type: GAME_OVER, winner: botResult.winner, line: botResult.line })
             } else {
@@ -183,14 +204,27 @@ function Room({ username, mode, gameType, intent, roomCode: inputRoomCode, onLea
 
   const isMyTurn = mode === 'local' ? true : currentTurn === playerSymbol
 
-  const renderBoard = () => (
-    <GameBoard
-      board={board}
-      onMove={handleMove}
-      disabled={!!winner}
-      winningLine={winningLine}
-    />
-  )
+  const renderBoard = () => {
+    if (gameType === 'caro') {
+      return (
+        <CaroBoard
+          board={board}
+          size={effectiveSize}
+          onMove={handleMove}
+          disabled={!!winner}
+          winningLine={winningLine}
+        />
+      )
+    }
+    return (
+      <GameBoard
+        board={board}
+        onMove={handleMove}
+        disabled={!!winner}
+        winningLine={winningLine}
+      />
+    )
+  }
 
   return (
     <div className="game-room">
@@ -263,7 +297,7 @@ function Room({ username, mode, gameType, intent, roomCode: inputRoomCode, onLea
             <span className="mode-text">{mode.charAt(0).toUpperCase() + mode.slice(1)}</span>
           </div>
           <div className="type-badge">
-            {gameType.charAt(0).toUpperCase() + gameType.slice(1)}
+            {gameType === 'caro' ? `Caro ${effectiveSize}×${effectiveSize}` : gameType.charAt(0).toUpperCase() + gameType.slice(1)}
           </div>
         </div>
       </div>
