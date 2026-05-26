@@ -26,6 +26,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('join-room', ({ roomCode, username }) => {
+    console.log("join-room");
     const room = rooms.get(roomCode?.toUpperCase());
     if (!room) return socket.emit('error', { message: 'Room not found' });
     if (room.players.length >= 2) return socket.emit('error', { message: 'Room full' });
@@ -35,30 +36,39 @@ io.on('connection', (socket) => {
     room.status = 'playing';
     socket.join(room.code);
     socket.to(room.code).emit('player-joined', { player: username });
-    socket.emit('room-joined', { roomCode: room.code });
+    socket.emit('room-joined', { roomCode: room.code, symbol: 'O' });
   });
 
   socket.on('auto-match', ({ username, gameType }) => {
     waitingPool.push({ socket, username, gameType });
     socket.data.username = username;
     socket.data.gameType = gameType;
-    if (waitingPool.length >= 2) {
-      const p1 = waitingPool.shift();
-      const p2 = waitingPool.shift();
-      const room = createRoom();
-      room.gameType = gameType;
-      room.players = [
-        { id: p1.socket.id, username: p1.username, symbol: 'X' },
-        { id: p2.socket.id, username: p2.username, symbol: 'O' }
-      ];
-      room.status = 'playing';
-      rooms.set(room.code, room);
-      p1.socket.join(room.code);
-      p2.socket.join(room.code);
-      p1.socket.emit('matched', { roomCode: room.code, opponent: p2.username });
-      p2.socket.emit('matched', { roomCode: room.code, opponent: p1.username });
-      io.to(room.code).emit('game-start');
-    }
+
+    const poolIdx = waitingPool.findIndex(p => p.socket.id === socket.id);
+    const myEntry = waitingPool[poolIdx];
+    if (poolIdx === -1) return;
+
+    const matchIdx = waitingPool.findIndex(p => p.socket.id !== socket.id && p.gameType === gameType);
+    if (matchIdx === -1) return;
+
+    const p1 = waitingPool.splice(poolIdx, 1)[0];
+    const remainingIdx = waitingPool.findIndex(p => p.socket.id !== p1.socket.id && p.gameType === gameType);
+    if (remainingIdx === -1) return;
+
+    const p2 = waitingPool.splice(remainingIdx, 1)[0];
+    const room = createRoom();
+    room.gameType = 'classic';
+    room.players = [
+      { id: p1.socket.id, username: p1.username, symbol: 'X' },
+      { id: p2.socket.id, username: p2.username, symbol: 'O' }
+    ];
+    room.status = 'playing';
+    rooms.set(room.code, room);
+    p1.socket.join(room.code);
+    p2.socket.join(room.code);
+    p1.socket.emit('matched', { roomCode: room.code, opponent: p2.username, symbol: 'X' });
+    p2.socket.emit('matched', { roomCode: room.code, opponent: p1.username, symbol: 'O' });
+    io.to(room.code).emit('game-start');
   });
 
   socket.on('make-move', ({ cellIndex }) => {
@@ -99,4 +109,4 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(3001, () => console.log('Server running on port 3001'));
+server.listen(3001, '0.0.0.0', () => console.log('Server running on port 3001'));

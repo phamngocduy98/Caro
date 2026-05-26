@@ -27,6 +27,8 @@ function App() {
           username={username}
           mode={roomConfig?.mode}
           gameType={roomConfig?.gameType}
+          intent={roomConfig?.intent}
+          roomCode={roomConfig?.roomCode}
           onLeave={() => setScreen('lobby')}
         />
       )}
